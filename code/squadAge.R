@@ -1,6 +1,6 @@
 # TODO
 # **Fix the Y axis to be consistent among filtered views
-
+# **Get Average for the whole league
 
 
 # Load required package(s)
@@ -47,7 +47,7 @@ rd <- c(
 # Empty dataframe
 
 df <- data.frame(  
-  season = character(),
+  season = numeric(),
   dateBorn = as.Date(character()), 
   position = character(),
   name = character(), 
@@ -120,9 +120,13 @@ filterOption <- names(filter)[1]
 
 dff <-  if(filterOption == "2") df[df$position == "O",] else if(filterOption == "3") dff <- df[df$position == "Z",] else if(filterOption == "4") df[df$position == "U",] else df
 
+# Insufficient data for FCVK prior 2000
+
+if(filterOption != "1") dff <- dff[(as.numeric(levels(dff$season)[dff$season]) > 2000 & dff$team == "fcvik") | (dff$team == "acspa"),]
+
 # Calculate players age at the start of the season
 
-dff$playerAgeYrs <- difftime(dff$dateSeasonStart, dff$dateBorn, units = "days")/365
+dff$playerAgeYrs <- as.numeric(difftime(dff$dateSeasonStart, dff$dateBorn, units = "days")/365)
 
 # Table aggregated means of squad age in days by club and season
 gr <- aggregate(dff$playerAgeYrs, 
@@ -153,14 +157,22 @@ levels(df1$team) <- c(names(url)[1],names(url)[2])
 
 cbPalette <- c("#D55E00","#0072B2") # http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/
 
-d <- ggplot(df1, aes(x=as.factor(season), y=as.numeric(avgSquadAge), group=team, colour=team )) + 
+d <- ggplot(df1, aes(x=as.factor(season), y=avgSquadAge, group=team, colour=team )) + 
         geom_point(position="dodge", stat = "identity") +
         geom_line(data=df1[!is.na(df1$avgSquadAge),])
 
 
 d <- d + scale_colour_manual(values=cbPalette)
+d <- d + ylim(20, 30)
 d <- d + labs(list(title = paste("Average Squad Age of",  names(url)[1],"and",  names(url)[2], "since 1994 (", if(as.integer(filterOption) <= 4) filter[[filterOption]], ")"), 
                    x = "Season", 
                    y = "Average Squad Age (years)", 
                    colour = "Team" ))
 d
+
+# Analyse
+# dff[dff$team == "fcvik" & dff$season == 1999,]
+# table(dff$position, dff$season, dff$team) filtered data valid since 2000s
+# table(dff$season, dff$team)
+
+
