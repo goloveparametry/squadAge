@@ -8,12 +8,7 @@ require("ggplot2")
 require("XML")
 
 
-# List of URLs to scrape
-# names(url)[1]
-# url[[1]]
-
-
-# List of dates when seasons started
+# List of dates when seasons started (hardcoded)
 
 rd <- c(
   "2013" = "2012-07-27",
@@ -47,7 +42,7 @@ df <- data.frame(
   name = character(), # name of the player
   team = character(), # team the player plays for
   dateSeasonStart = as.Date(character()), # date of the season start
-  stringsAsFactors=FALSE
+  stringsAsFactors = F
 )
 
 ## FETCH
@@ -61,8 +56,8 @@ url <- xpathSApply(
 
 names(url) <- xpathSApply(
   htmlParse("http://www.gambrinusliga.cz/"),
-  "/html/body/header/div/div[2]/div[1]/div[1]/ul/li/a", 
-  function(x) c(xmlAttrs(x)[["class"]])
+  "/html/body/header/div/div[2]/div[1]/div[1]/ul/li/a/img", 
+  function(x) c(xmlAttrs(x)[["title"]])
 )
 
 # Loop over teams
@@ -70,6 +65,7 @@ names(url) <- xpathSApply(
 for(i in url){
   
   # Fetch links (squad by season)
+  print(i)
   
   s <- xpathSApply(htmlParse(i),"//select/option", function(x) c(xmlAttrs(x)[["value"]]))
   s <- s[grepl("/soupiska/",s)]
@@ -95,15 +91,14 @@ for(i in url){
           strsplit(j,"/")[[1]][3], # season
           as.Date(tab$narozen,"%d.%m.%Y"), # reformat to yyyy-mm-dd,
           tab$P, # position
-          tab$`jméno`, # name
-          # substr(gsub("-","",strsplit(j,"/")[[1]][5]),2,6), # team
-          names(i)
+          tab[,3], # name
+          #substr(gsub("-","",strsplit(j,"/")[[1]][5]),2,6), # team
+          names(url[url == i]),
           as.Date(rd[[strsplit(j,"/")[[1]][3]]],"%Y-%m-%d")  # find date with season start from rd
         )
     )
     
   }
-  
   
 }
 
@@ -118,6 +113,17 @@ names(df) <- c(
   "dateSeasonStart"  
   )
 
+# Calculate players age at the start of the season
+
+df$playerAgeYrs <- as.numeric(difftime(df$dateSeasonStart, df$dateBorn, units = "days")/365)
+
+# Total average
+
+avg <- aggregate(dff$playerAgeYrs, by=list(dff$season), FUN = mean, na.rm = T)
+avg$team <- "total"
+names(avg) <- c("season", "team", "avgSquadAge")
+avg <- avg[ , c(1, 3, 2) ]
+
 # FILTER
 
 filter <- list("1" = "No Filter", 
@@ -130,17 +136,20 @@ filterOption <- names(filter)[1]
 
 dff <-  if(filterOption == "2") df[df$position == "O",] else if(filterOption == "3") dff <- df[df$position == "Z",] else if(filterOption == "4") df[df$position == "U",] else df
 
-# Calculate players age at the start of the season
+# Filter by team
 
-dff$playerAgeYrs <- as.numeric(difftime(dff$dateSeasonStart, dff$dateBorn, units = "days")/365)
+# AC Sparta Praha and FC Viktoria Plzen
+
+dff <-  dff[dff$team == "club-acsppr" | dff$team == "club-fcvipl", ]
+
 
 ## AGGREGATE
 
 # Table aggregated means of squad age in days by club and season
 gr <- aggregate(dff$playerAgeYrs, 
-                by=list(dff$season, dff$team), 
+                by = list(dff$season, dff$team), 
                 mean, 
-                na.rm=TRUE)
+                na.rm = T)
 
 colnames(gr) <- c(
   "season",
@@ -158,24 +167,24 @@ df1 <- expand.grid(season = seq(1994, 2013), team = levels(gr$team))
 df1$key <- paste(df1$season, df1$team, "")
 
 # Join full data frame with mean
-df1 <- merge(x = df1, y = gr, by = "key", all.x=TRUE)[,c(2,3,6)]
-colnames(df1) <- c("season","team","avgSquadAge")
+df1 <- merge(x = df1, y = gr, by = "key", all.x = T)[, c(2, 3, 6)]
+colnames(df1) <- c("season", "team", "avgSquadAge")
 
-levels(df1$team) <- c(names(url)[1],names(url)[2])
+df1 <- rbind(df1, avg)
 
 
 # VISUALIZE
 
-cbPalette <- c("#D55E00","#0072B2") # http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/
+cbPalette <- c("#D55E00","#0072B2", "#999999") # http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/
 
-d <- ggplot(df1, aes(x=as.factor(season), y=avgSquadAge, group=team, colour=team )) + 
+d <- ggplot(df1[!is.na(df1$avgSquadAge), ], aes(x=as.factor(season), y=avgSquadAge, group=team, colour=team )) + 
         geom_point(position="dodge", stat = "identity") +
         geom_line(data=df1[!is.na(df1$avgSquadAge),])
 
 
 d <- d + scale_colour_manual(values=cbPalette)
 d <- d + ylim(20, 30)
-d <- d + labs(list(title = paste("Average Squad Age of",  names(url)[1],"and",  names(url)[2], "since 1994 (", if(as.integer(filterOption) <= 4) filter[[filterOption]], ")"), 
+d <- d + labs(list(title = paste("Average Squad Age of", names(url)[1], "and", names(url)[2], "since 1994 (", if(as.integer(filterOption) <= 4) filter[[filterOption]], ")"), 
                    x = "Season", 
                    y = "Average Squad Age (years)", 
                    colour = "Team" ))
