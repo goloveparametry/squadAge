@@ -1,7 +1,6 @@
 # TODO
-# **Fix the Y axis to be consistent among filtered views
 # **Get Average for the whole league
-
+# **Add counts to data frame gr
 
 # Load required package(s)
 
@@ -12,11 +11,6 @@ require("XML")
 # List of URLs to scrape
 # names(url)[1]
 # url[[1]]
-
-url <- list(
-  "AC Sparta Praha" = "http://www.gambrinusliga.cz/klub/2-ac-sparta-praha.html",
-  #"SK Slavia Praha" = "http://www.gambrinusliga.cz/klub//5-sk-slavia-praha.html",
-  "FC Viktoria Plzeň" = "http://www.gambrinusliga.cz/klub/6-fc-viktoria-plzen.html")
 
 
 # List of dates when seasons started
@@ -47,13 +41,28 @@ rd <- c(
 # Empty dataframe
 
 df <- data.frame(  
-  season = numeric(),
-  dateBorn = as.Date(character()), 
-  position = character(),
-  name = character(), 
-  team = character(),
-  dateSeasonStart = as.Date(character()),
+  season = numeric(), # year of the season start (yyyy)
+  dateBorn = as.Date(character()), # date player was born
+  position = character(), # position of the player
+  name = character(), # name of the player
+  team = character(), # team the player plays for
+  dateSeasonStart = as.Date(character()), # date of the season start
   stringsAsFactors=FALSE
+)
+
+## FETCH
+
+# Fetch URLs for every team in current season (named vector)
+url <- xpathSApply(
+  htmlParse("http://www.gambrinusliga.cz/"),
+  "/html/body/header/div/div[2]/div[1]/div[1]/ul/li/a", 
+  function(x) c(paste("http://www.gambrinusliga.cz", xmlAttrs(x)[["href"]], sep = ""))
+  )
+
+names(url) <- xpathSApply(
+  htmlParse("http://www.gambrinusliga.cz/"),
+  "/html/body/header/div/div[2]/div[1]/div[1]/ul/li/a", 
+  function(x) c(xmlAttrs(x)[["class"]])
 )
 
 # Loop over teams
@@ -87,7 +96,8 @@ for(i in url){
           as.Date(tab$narozen,"%d.%m.%Y"), # reformat to yyyy-mm-dd,
           tab$P, # position
           tab$`jméno`, # name
-          substr(gsub("-","",strsplit(j,"/")[[1]][5]),2,6), # team
+          # substr(gsub("-","",strsplit(j,"/")[[1]][5]),2,6), # team
+          names(i)
           as.Date(rd[[strsplit(j,"/")[[1]][3]]],"%Y-%m-%d")  # find date with season start from rd
         )
     )
@@ -108,7 +118,7 @@ names(df) <- c(
   "dateSeasonStart"  
   )
 
-# Filter option
+# FILTER
 
 filter <- list("1" = "No Filter", 
                "2" = "Defense",
@@ -116,17 +126,15 @@ filter <- list("1" = "No Filter",
                "4" = "Attack")
 filterOption <- names(filter)[1]
 
-# Filter by position
+# Filter by position (dff: data frame filtered)
 
 dff <-  if(filterOption == "2") df[df$position == "O",] else if(filterOption == "3") dff <- df[df$position == "Z",] else if(filterOption == "4") df[df$position == "U",] else df
-
-# Insufficient data for FCVK prior 2000
-
-if(filterOption != "1") dff <- dff[(as.numeric(levels(dff$season)[dff$season]) > 2000 & dff$team == "fcvik") | (dff$team == "acspa"),]
 
 # Calculate players age at the start of the season
 
 dff$playerAgeYrs <- as.numeric(difftime(dff$dateSeasonStart, dff$dateBorn, units = "days")/365)
+
+## AGGREGATE
 
 # Table aggregated means of squad age in days by club and season
 gr <- aggregate(dff$playerAgeYrs, 
@@ -143,6 +151,8 @@ colnames(gr) <- c(
 #levels(gr$season) <- rev(levels(gr$season)) # reverse levels
 gr$key <- paste(gr$season, gr$team, "")
 
+## REFINE
+
 # Full data frame (in case of missing seasons)
 df1 <- expand.grid(season = seq(1994, 2013), team = levels(gr$team))
 df1$key <- paste(df1$season, df1$team, "")
@@ -153,7 +163,8 @@ colnames(df1) <- c("season","team","avgSquadAge")
 
 levels(df1$team) <- c(names(url)[1],names(url)[2])
 
-# Visualize
+
+# VISUALIZE
 
 cbPalette <- c("#D55E00","#0072B2") # http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/
 
