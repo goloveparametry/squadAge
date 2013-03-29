@@ -1,10 +1,6 @@
 # TODO
 # DONE **Get Average for the whole league
-<<<<<<< HEAD
-# **Add counts to data frame df.agr
-=======
 # DONE **Add counts to data frame df.agr
->>>>>>> Averages for whole league added and display of a mean filtered by min 3 occurences
 
 # Load required package(s)
 
@@ -220,7 +216,9 @@ d <- d + labs(list(title = paste("Average Squad Age of", df.1$team[1], "and", df
 d
 
 # Analyse
-# dff[dff$team == "fcvik" & dff$season == 1999,]
-# table(dff$position, dff$season, dff$team) filtered data valid since 2000s
-# table(dff$season, dff$team)
+# df.f[df.f$team == paste(df.1$team[2]) & df.f$season == 1999,]
+
+# Export data
+write.csv(df, file = "data/dataset-full.csv", row.names = F)
+write.csv(df.1, file = "data/dataset-acsp+fcvp.csv", row.names = F)
 
