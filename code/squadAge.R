@@ -1,6 +1,10 @@
 # TODO
 # DONE **Get Average for the whole league
+<<<<<<< HEAD
 # **Add counts to data frame df.agr
+=======
+# DONE **Add counts to data frame df.agr
+>>>>>>> Averages for whole league added and display of a mean filtered by min 3 occurences
 
 # Load required package(s)
 
